@@ -168,6 +168,9 @@
 
       const [present, setPresent] = useState(() => new Set());
       const [late, setLate] = useState(() => new Set());
+      const [pasteOpen, setPasteOpen] = useState(false);
+      const [pasteText, setPasteText] = useState("");
+      const [pasteResult, setPasteResult] = useState(null);
       const [numTeams, setNumTeams] = useState(2);
       const [teams, setTeams] = useState(null);
       const [copied, setCopied] = useState(false);
@@ -196,6 +199,19 @@
         setLate((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
       const allOn = () => setPresent(new Set(roster.map((p) => p.id)));
       const allOff = () => { setPresent(new Set()); setLate(new Set()); };
+      const applyPaste = () => {
+        const norm = (s) => s.replace(/\s+/g, "").toLowerCase();
+        const map = new Map(roster.map((p) => [norm(p.name), p.id]));
+        const lines = pasteText.split(/[\n,]/).map((s) => s.trim()).filter(Boolean);
+        const matched = new Set();
+        const unmatched = [];
+        lines.forEach((line) => {
+          const id = map.get(norm(line));
+          if (id !== undefined) matched.add(id); else unmatched.push(line);
+        });
+        setPresent(matched);
+        setPasteResult({ matched: matched.size, unmatched });
+      };
       const make = () => { if (enough) setTeams(spreadLate(buildTeams(attendees, numTeams))); };
 
       const shareText = useMemo(() => {
@@ -228,8 +244,36 @@
               <div className="text-right font-mono text-xs text-zinc-400">참석 {attendees.length} / {roster.length}</div>
             </header>
 
-            {/* 참석 체크 */}
+            {/* 카톡 명단 붙여넣기 */}
             <section className="rounded-2xl bg-white p-4 ring-1 ring-zinc-200">
+              <button onClick={() => setPasteOpen((v) => !v)} className="flex w-full items-center justify-between">
+                <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-400">카톡 명단 붙여넣기</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={"text-zinc-400 transition " + (pasteOpen ? "rotate-180" : "")}><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+              {pasteOpen && (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-zinc-400">카톡 투표에서 '참석'한 사람 이름을 복사해 붙여넣으세요. 한 줄에 한 명(또는 쉼표로 구분). 이름이 명단과 같으면 자동으로 참석 체크됩니다. 기존 체크는 덮어씁니다.</p>
+                  <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)} rows={5}
+                    placeholder={"이주호\n강정훈\n김선률\n..."}
+                    className="w-full rounded-lg border border-zinc-300 p-2 font-mono text-xs outline-none focus:border-zinc-900" />
+                  <button onClick={applyPaste} disabled={!pasteText.trim()}
+                    className="w-full rounded-lg bg-zinc-900 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-400">
+                    참석 반영
+                  </button>
+                  {pasteResult && (
+                    <div className="text-xs">
+                      <span className="font-medium text-emerald-700">{pasteResult.matched}명 인식됨</span>
+                      {pasteResult.unmatched.length > 0 && (
+                        <span className="text-amber-700"> · 못 찾음: {pasteResult.unmatched.slice(0, 8).join(", ")}{pasteResult.unmatched.length > 8 ? ` 외 ${pasteResult.unmatched.length - 8}개` : ""}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+
+            {/* 참석 체크 */}
+            <section className="mt-4 rounded-2xl bg-white p-4 ring-1 ring-zinc-200">
               <div className="flex items-center justify-between">
                 <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-zinc-400">오늘 참석</span>
                 <div className="flex gap-1.5">
